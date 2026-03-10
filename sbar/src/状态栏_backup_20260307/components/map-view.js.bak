@@ -1,0 +1,520 @@
+// ===== 舆图视图组件 =====
+// 从功能版 状态栏.html L1088-1968 迁移
+// 世界地图（CDN 图片 + 56城市图标）+ 拖拽/缩放 + 区域地图
+
+function MapView(props) {
+  var location = props.location || "";
+  var year = props.year || 745;
+
+  // 状态
+  var viewingZone = React.useState(null); // null=世界地图, string=区域地图文件名
+  var zoneMap = viewingZone[0];
+  var setZoneMap = viewingZone[1];
+
+  // Refs
+  var wrapRef = React.useRef(null);
+  var stateRef = React.useRef({
+    scale: 0.15,
+    tx: 0,
+    ty: 0,
+    drag: false,
+    lx: 0,
+    ly: 0,
+    moved: false,
+    td: 0, // touch distance
+    tx2: 0,
+    ty2: 0, // touch last pos
+    initialized: false,
+  });
+
+  // 初始化：计算初始缩放和位置（居中到城市密集区）
+  React.useEffect(
+    function () {
+      if (!wrapRef.current || zoneMap) return;
+      var wrap = wrapRef.current;
+      var s = stateRef.current;
+      if (s.initialized) return;
+      s.initialized = true;
+
+      var ww = wrap.clientWidth;
+      var wh = wrap.clientHeight;
+      var fitScale = ww / MAP_W;
+      s.scale = fitScale * 2.2;
+      // 城市密集区约 x:3000 y:2200
+      s.tx = ww / 2 - 3000 * s.scale;
+      s.ty = wh / 2 - 2200 * s.scale;
+      applyTransform();
+    },
+    [zoneMap],
+  );
+
+  function applyTransform() {
+    if (!wrapRef.current) return;
+    var s = stateRef.current;
+    var inner = wrapRef.current.querySelector(".map-inner");
+    if (inner) {
+      inner.style.transform =
+        "translate(" + s.tx + "px," + s.ty + "px) scale(" + s.scale + ")";
+    }
+    wrapRef.current.classList.toggle("zoom-high", s.scale >= ZOOM_THRESHOLD);
+  }
+
+  function zoomMap(factor, cx, cy) {
+    var s = stateRef.current;
+    var wrap = wrapRef.current;
+    if (!wrap) return;
+    if (cx === undefined) {
+      cx = wrap.clientWidth / 2;
+      cy = wrap.clientHeight / 2;
+    }
+    var ns = Math.max(SCALE_MIN, Math.min(SCALE_MAX, s.scale * factor));
+    var r = ns / s.scale;
+    s.tx = cx - (cx - s.tx) * r;
+    s.ty = cy - (cy - s.ty) * r;
+    s.scale = ns;
+    applyTransform();
+  }
+
+  // 事件处理器 — 依赖 zoneMap：世界地图 div 在切换时会被销毁重建
+  React.useEffect(
+    function () {
+      if (zoneMap) return; // 区域地图模式下不需要绑定
+      var wrap = wrapRef.current;
+      if (!wrap) return;
+      var s = stateRef.current;
+
+      // 鼠标拖拽
+      function onMouseDown(e) {
+        s.drag = true;
+        s.moved = false;
+        s.lx = e.clientX;
+        s.ly = e.clientY;
+      }
+      function onMouseMove(e) {
+        if (!s.drag) return;
+        var dx = e.clientX - s.lx;
+        var dy = e.clientY - s.ly;
+        if (Math.abs(dx) > 3 || Math.abs(dy) > 3) s.moved = true;
+        s.tx += dx;
+        s.ty += dy;
+        s.lx = e.clientX;
+        s.ly = e.clientY;
+        applyTransform();
+      }
+      function onMouseUp() {
+        s.drag = false;
+      }
+
+      // 滚轮缩放
+      function onWheel(e) {
+        e.preventDefault();
+        var r = wrap.getBoundingClientRect();
+        zoomMap(
+          e.deltaY < 0 ? 1.15 : 0.87,
+          e.clientX - r.left,
+          e.clientY - r.top,
+        );
+      }
+
+      // 触摸
+      function getDist(e) {
+        return Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY,
+        );
+      }
+      function getMid(e) {
+        return {
+          x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+          y: (e.touches[0].clientY + e.touches[1].clientY) / 2,
+        };
+      }
+      function onTouchStart(e) {
+        e.preventDefault();
+        if (e.touches.length === 1) {
+          s.drag = true;
+          s.moved = false;
+          s.tx2 = e.touches[0].clientX;
+          s.ty2 = e.touches[0].clientY;
+        } else if (e.touches.length === 2) {
+          s.drag = false;
+          s.td = getDist(e);
+          var m = getMid(e);
+          s.tx2 = m.x;
+          s.ty2 = m.y;
+        }
+      }
+      function onTouchMove(e) {
+        e.preventDefault();
+        if (e.touches.length === 1 && s.drag) {
+          var dx = e.touches[0].clientX - s.tx2;
+          var dy = e.touches[0].clientY - s.ty2;
+          if (Math.abs(dx) > 3 || Math.abs(dy) > 3) s.moved = true;
+          s.tx += dx;
+          s.ty += dy;
+          s.tx2 = e.touches[0].clientX;
+          s.ty2 = e.touches[0].clientY;
+          applyTransform();
+        } else if (e.touches.length === 2) {
+          var d = getDist(e);
+          var m = getMid(e);
+          var r = wrap.getBoundingClientRect();
+          zoomMap(d / s.td, m.x - r.left, m.y - r.top);
+          s.tx += m.x - s.tx2;
+          s.ty += m.y - s.ty2;
+          s.td = d;
+          s.tx2 = m.x;
+          s.ty2 = m.y;
+          applyTransform();
+        }
+      }
+      function onTouchEnd(e) {
+        if (!e.touches.length) s.drag = false;
+      }
+
+      wrap.addEventListener("mousedown", onMouseDown);
+      window.addEventListener("mousemove", onMouseMove);
+      window.addEventListener("mouseup", onMouseUp);
+      wrap.addEventListener("wheel", onWheel, { passive: false });
+      wrap.addEventListener("touchstart", onTouchStart, { passive: false });
+      wrap.addEventListener("touchmove", onTouchMove, { passive: false });
+      wrap.addEventListener("touchend", onTouchEnd);
+
+      return function () {
+        wrap.removeEventListener("mousedown", onMouseDown);
+        window.removeEventListener("mousemove", onMouseMove);
+        window.removeEventListener("mouseup", onMouseUp);
+        wrap.removeEventListener("wheel", onWheel);
+        wrap.removeEventListener("touchstart", onTouchStart);
+        wrap.removeEventListener("touchmove", onTouchMove);
+        wrap.removeEventListener("touchend", onTouchEnd);
+      };
+    },
+    [zoneMap],
+  );
+
+  // 城市点击 → 区域地图
+  function onCityClick(idx) {
+    var s = stateRef.current;
+    if (s.moved) return; // 拖拽中不触发
+    var c = CITIES[idx];
+    if (!c || !c.zoneMap) return;
+    // 检查条件替代版本（战乱/乱世）
+    var finalZoneMap = c.zoneMap;
+    for (var i = 0; i < CONDITIONAL_MAPS.length; i++) {
+      var cm = CONDITIONAL_MAPS[i];
+      if (!cm.minYear) continue;
+      if (year < cm.minYear) continue;
+      var kws = KEYWORDS[c.name];
+      if (
+        kws &&
+        kws.some(function (kw) {
+          return cm.keywords.some(function (ck) {
+            return ck === kw;
+          });
+        })
+      ) {
+        finalZoneMap = cm.zoneMap;
+        break;
+      }
+    }
+    setZoneMap(finalZoneMap);
+  }
+
+  // 返回世界地图
+  function onZoneBack() {
+    setZoneMap(null);
+    stateRef.current.initialized = false; // 重新初始化位置
+    zoneStateRef.current.initialized = false;
+  }
+
+  // 自动匹配：首次进入时根据 location 显示区域地图
+  React.useEffect(function () {
+    if (!location) return;
+    var matched = matchZoneMap(location, year);
+    if (matched && matched.zoneMap) {
+      setZoneMap(matched.zoneMap);
+    }
+  }, []);
+
+  // ===== 区域地图拖拽/缩放 =====
+  var zoneWrapRef = React.useRef(null);
+  var zoneStateRef = React.useRef({
+    scale: 1,
+    tx: 0,
+    ty: 0,
+    drag: false,
+    lx: 0,
+    ly: 0,
+    moved: false,
+    td: 0,
+    tx2: 0,
+    ty2: 0,
+    initialized: false,
+  });
+
+  // 区域地图初始化位置
+  React.useEffect(
+    function () {
+      if (!zoneMap || !zoneWrapRef.current) return;
+      var wrap = zoneWrapRef.current;
+      var zs = zoneStateRef.current;
+      if (zs.initialized) return;
+      zs.initialized = true;
+      // 区域地图原始尺寸约 1024x896，自适应容器宽度
+      var ZONE_W = 1024,
+        ZONE_H = 896;
+      var ww = wrap.clientWidth;
+      var wh = wrap.clientHeight;
+      zs.scale = ww / ZONE_W;
+      zs.tx = 0;
+      zs.ty = (wh - ZONE_H * zs.scale) / 2;
+      var inner = wrap.querySelector(".zone-inner");
+      if (inner) {
+        inner.style.transform =
+          "translate(" + zs.tx + "px," + zs.ty + "px) scale(" + zs.scale + ")";
+      }
+    },
+    [zoneMap],
+  );
+
+  // 区域地图事件监听
+  React.useEffect(
+    function () {
+      if (!zoneMap) return;
+      var wrap = zoneWrapRef.current;
+      if (!wrap) return;
+      var zs = zoneStateRef.current;
+
+      function applyZoneTransform() {
+        var inner = wrap.querySelector(".zone-inner");
+        if (inner) {
+          inner.style.transform =
+            "translate(" +
+            zs.tx +
+            "px," +
+            zs.ty +
+            "px) scale(" +
+            zs.scale +
+            ")";
+        }
+      }
+      function zoneZoom(factor, cx, cy) {
+        if (cx === undefined) {
+          cx = wrap.clientWidth / 2;
+          cy = wrap.clientHeight / 2;
+        }
+        var ns = Math.max(0.2, Math.min(3, zs.scale * factor));
+        var r = ns / zs.scale;
+        zs.tx = cx - (cx - zs.tx) * r;
+        zs.ty = cy - (cy - zs.ty) * r;
+        zs.scale = ns;
+        applyZoneTransform();
+      }
+      function onMouseDown(e) {
+        zs.drag = true;
+        zs.moved = false;
+        zs.lx = e.clientX;
+        zs.ly = e.clientY;
+      }
+      function onMouseMove(e) {
+        if (!zs.drag) return;
+        var dx = e.clientX - zs.lx,
+          dy = e.clientY - zs.ly;
+        if (Math.abs(dx) > 3 || Math.abs(dy) > 3) zs.moved = true;
+        zs.tx += dx;
+        zs.ty += dy;
+        zs.lx = e.clientX;
+        zs.ly = e.clientY;
+        applyZoneTransform();
+      }
+      function onMouseUp() {
+        zs.drag = false;
+      }
+      function onWheel(e) {
+        e.preventDefault();
+        var r = wrap.getBoundingClientRect();
+        zoneZoom(
+          e.deltaY < 0 ? 1.15 : 0.87,
+          e.clientX - r.left,
+          e.clientY - r.top,
+        );
+      }
+      function getDist(e) {
+        return Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY,
+        );
+      }
+      function getMid(e) {
+        return {
+          x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+          y: (e.touches[0].clientY + e.touches[1].clientY) / 2,
+        };
+      }
+      function onTouchStart(e) {
+        e.preventDefault();
+        if (e.touches.length === 1) {
+          zs.drag = true;
+          zs.moved = false;
+          zs.tx2 = e.touches[0].clientX;
+          zs.ty2 = e.touches[0].clientY;
+        } else if (e.touches.length === 2) {
+          zs.drag = false;
+          zs.td = getDist(e);
+          var m = getMid(e);
+          zs.tx2 = m.x;
+          zs.ty2 = m.y;
+        }
+      }
+      function onTouchMove(e) {
+        e.preventDefault();
+        if (e.touches.length === 1 && zs.drag) {
+          var dx = e.touches[0].clientX - zs.tx2,
+            dy = e.touches[0].clientY - zs.ty2;
+          if (Math.abs(dx) > 3 || Math.abs(dy) > 3) zs.moved = true;
+          zs.tx += dx;
+          zs.ty += dy;
+          zs.tx2 = e.touches[0].clientX;
+          zs.ty2 = e.touches[0].clientY;
+          applyZoneTransform();
+        } else if (e.touches.length === 2) {
+          var d = getDist(e),
+            m = getMid(e),
+            r = wrap.getBoundingClientRect();
+          zoneZoom(d / zs.td, m.x - r.left, m.y - r.top);
+          zs.tx += m.x - zs.tx2;
+          zs.ty += m.y - zs.ty2;
+          zs.td = d;
+          zs.tx2 = m.x;
+          zs.ty2 = m.y;
+          applyZoneTransform();
+        }
+      }
+      function onTouchEnd(e) {
+        if (!e.touches.length) zs.drag = false;
+      }
+
+      wrap.addEventListener("mousedown", onMouseDown);
+      window.addEventListener("mousemove", onMouseMove);
+      window.addEventListener("mouseup", onMouseUp);
+      wrap.addEventListener("wheel", onWheel, { passive: false });
+      wrap.addEventListener("touchstart", onTouchStart, { passive: false });
+      wrap.addEventListener("touchmove", onTouchMove, { passive: false });
+      wrap.addEventListener("touchend", onTouchEnd);
+      return function () {
+        wrap.removeEventListener("mousedown", onMouseDown);
+        window.removeEventListener("mousemove", onMouseMove);
+        window.removeEventListener("mouseup", onMouseUp);
+        wrap.removeEventListener("wheel", onWheel);
+        wrap.removeEventListener("touchstart", onTouchStart);
+        wrap.removeEventListener("touchmove", onTouchMove);
+        wrap.removeEventListener("touchend", onTouchEnd);
+      };
+    },
+    [zoneMap],
+  );
+
+  // 区域地图视图
+  if (zoneMap) {
+    return html`
+      <div className="char-content-enter">
+        <div className="map-wrap" ref=${zoneWrapRef}>
+          <button className="zone-back-btn" onClick=${onZoneBack}>〈</button>
+          <div
+            className="zone-inner"
+            style=${{
+              position: "absolute",
+              width: "1024px",
+              height: "896px",
+              transformOrigin: "0 0",
+              willChange: "transform",
+            }}
+          >
+            <img
+              src=${ZONE_CDN + "/" + encodeURIComponent(zoneMap)}
+              alt=${zoneMap}
+              draggable="false"
+              style=${{
+                width: "1024px",
+                height: "896px",
+                display: "block",
+                pointerEvents: "none",
+              }}
+            />
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // 世界地图视图
+  return html`
+    <div className="char-content-enter">
+      <div className="map-wrap" ref=${wrapRef}>
+        <div className="map-inner">
+          <!-- 世界地图底图 -->
+          <img
+            className="map-base"
+            src=${MAP_CDN + "/worldmap.jpg"}
+            draggable="false"
+          />
+          <!-- 交通线覆盖层 -->
+          <img
+            className="map-traffic"
+            src=${MAP_CDN + "/traffic.png"}
+            draggable="false"
+            style=${{
+              position: "absolute",
+              left: TRAFFIC_LEFT + "px",
+              top: TRAFFIC_TOP + "px",
+              width: TRAFFIC_WIDTH + "px",
+            }}
+          />
+          <!-- 56 城市图标+名称 -->
+          ${CITIES.map(function (c, i) {
+            return html`
+              <${React.Fragment} key=${c.name}>
+                <div
+                  className=${"city-icon" + (c.zoneMap ? " clickable" : "")}
+                  onClick=${function () {
+                    onCityClick(i);
+                  }}
+                  style=${{
+                    position: "absolute",
+                    left: c.x + "px",
+                    top: c.y + "px",
+                    width: ICON_SIZE + "px",
+                    height: ICON_SIZE + "px",
+                  }}
+                >
+                  <img
+                    src=${MAP_CDN + "/icons/" + encodeURIComponent(c.file)}
+                    alt=${c.name}
+                    loading="lazy"
+                    style=${{
+                      width: ICON_SIZE + "px",
+                      height: ICON_SIZE + "px",
+                      pointerEvents: "none",
+                    }}
+                  />
+                </div>
+                <div
+                  className="city-name"
+                  style=${{
+                    position: "absolute",
+                    left: c.x + LABEL_OFFSET_X + "px",
+                    top: c.y + LABEL_OFFSET_Y + "px",
+                    fontSize: (c.major ? FONT_MAJOR : FONT_MINOR) + "px",
+                  }}
+                >
+                  ${c.name}
+                </div>
+              </${React.Fragment}>
+            `;
+          })}
+        </div>
+      </div>
+    </div>
+  `;
+}

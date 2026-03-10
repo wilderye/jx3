@@ -1,0 +1,170 @@
+// ===== 故人视图组件 =====
+// Phase 3: Framer Motion → CSS @keyframes + transition
+
+// 门派名提取
+function getSectName(sect) {
+  return sect.split("\u00B7")[0];
+}
+
+// 动态字号
+function getNameSize(name) {
+  var len = name.length;
+  if (len <= 3) return { mobile: "text-[60px]", desktop: "md:text-[80px]" };
+  if (len === 4) return { mobile: "text-[45px]", desktop: "md:text-[62px]" };
+  if (len === 5) return { mobile: "text-[36px]", desktop: "md:text-[50px]" };
+  if (len === 6) return { mobile: "text-[30px]", desktop: "md:text-[42px]" };
+  return { mobile: "text-[26px]", desktop: "md:text-[36px]" };
+}
+
+// ===== 门派图标背景 =====
+function SectIconBackground(props) {
+  var activeChar = props.activeChar;
+  var sectName = getSectName(activeChar.sect);
+  var iconPaths = SECT_ICONS[sectName] || [];
+
+  // 用 key 触发 CSS animation 重播
+  return html`
+    <${React.Fragment}>
+      <!-- 手机端图标 -->
+      <div
+        className="md:hidden"
+        style=${{
+          position: "absolute",
+          top: "300px",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          width: "300px",
+          height: "300px",
+          opacity: 0.05,
+          pointerEvents: "none",
+          zIndex: 0,
+        }}
+      >
+        <svg
+          key=${activeChar.name}
+          className="sect-icon-enter"
+          viewBox="0 0 256 256"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          ${iconPaths.map(function (d, i) {
+            return html`<path key=${i} fill="#000000" d=${d} />`;
+          })}
+        </svg>
+      </div>
+      <!-- 桌面端图标 -->
+      <div
+        className="hidden md:flex"
+        style=${{
+          position: "absolute",
+          top: "50%",
+          left: "118px",
+          transform: "translate(-50%, -50%)",
+          width: "450px",
+          height: "450px",
+          opacity: 0.05,
+          pointerEvents: "none",
+          zIndex: 0,
+        }}
+      >
+        <svg
+          key=${activeChar.name}
+          className="sect-icon-enter"
+          viewBox="0 0 256 256"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          ${iconPaths.map(function (d, i) {
+            return html`<path key=${i} fill="#000000" d=${d} />`;
+          })}
+        </svg>
+      </div>
+    </${React.Fragment}>
+  `;
+}
+
+// ===== 角色内容 =====
+function CharacterContent(props) {
+  var activeChar = props.activeChar;
+  var prevChar = props.prevChar;
+  var nextChar = props.nextChar;
+
+  var nameSize = getNameSize(activeChar.name);
+
+  return html`
+    <div className="char-content-enter">
+      <!-- Character Section container -->
+      <div
+        className="relative flex flex-col md:flex-row items-center md:items-start gap-8 md:gap-16 mb-16 md:mb-24 z-10 md:mt-6"
+      >
+        <!-- Character Switcher -->
+        <div className="flex items-center gap-4 md:gap-6 z-10">
+          <button
+            onClick=${prevChar}
+            className="text-3xl opacity-20 hover:opacity-100 transition-opacity p-2 select-none"
+          >
+            〈
+          </button>
+          <div
+            className="relative w-20 md:w-24 h-[220px] md:h-[300px] flex items-center justify-center"
+          >
+            <div
+              key=${activeChar.name}
+              className=${"char-name-enter absolute leading-none tracking-[0.2em] font-medium select-none writing-vertical-rl " +
+              nameSize.mobile +
+              " " +
+              nameSize.desktop}
+            >
+              ${activeChar.name}
+            </div>
+          </div>
+          <button
+            onClick=${nextChar}
+            className="text-3xl opacity-20 hover:opacity-100 transition-opacity p-2 select-none"
+          >
+            〉
+          </button>
+        </div>
+
+        <!-- Character Details & Affairs -->
+        <div
+          className="relative w-full max-w-md z-10 flex flex-col justify-start md:justify-center min-h-[180px] md:min-h-[280px]"
+        >
+          <div
+            key=${activeChar.name}
+            className="char-details-enter absolute flex flex-col gap-3 md:gap-4 text-base md:text-xl tracking-widest opacity-80 items-center md:items-start w-full select-none"
+          >
+            <div className="flex items-center gap-4">
+              <span>信赖</span>
+              <span className="text-xl md:text-2xl font-serif">
+                ${activeChar.trust}
+              </span>
+            </div>
+            <div>${activeChar.sect}</div>
+            <div>${activeChar.relationship}</div>
+
+            ${activeChar.affairs &&
+            activeChar.affairs.length > 0 &&
+            html`
+              <div
+                className="mt-4 md:mt-6 flex flex-col gap-1 md:gap-2 text-sm md:text-base tracking-wider opacity-70 items-center md:items-start text-center md:text-left px-4 md:px-0"
+              >
+                ${activeChar.affairs.map(function (affair, idx) {
+                  return html`
+                    <div key=${idx} className="flex items-start gap-1">
+                      <span className="opacity-40 select-none"> · </span>
+                      <span>
+                        ${affair.content}
+                        <span className="ml-2 text-xs md:text-sm opacity-50">
+                          ${affair.timeLimit} | ${affair.status}
+                        </span>
+                      </span>
+                    </div>
+                  `;
+                })}
+              </div>
+            `}
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}

@@ -1,0 +1,141 @@
+// ===== 见闻视图组件 =====
+// Phase 4: Framer Motion → CSS transition + inline transform
+
+// EventCarousel 组件
+function EventCarousel(props) {
+  var events = props.events;
+  var activeIndex = props.activeIndex;
+  var onChange = props.onChange;
+  var yearKey = props.yearKey;
+
+  if (!events || events.length === 0) {
+    return html`
+      <div
+        className="text-black/30 italic mt-8 select-none text-center md:text-left"
+      >
+        暂无记事
+      </div>
+    `;
+  }
+
+  return html`
+    <div
+      className="w-full flex flex-col items-center md:items-start mt-6 md:mt-8"
+    >
+      <!-- Tag Selector -->
+      <div
+        className="relative w-full max-w-[400px] h-16 flex items-center mb-6 md:mb-8 overflow-hidden md:-ml-[85px]"
+        style=${{
+          WebkitMaskImage:
+            "linear-gradient(to right, transparent, black 15%, black 85%, transparent)",
+          maskImage:
+            "linear-gradient(to right, transparent, black 15%, black 85%, transparent)",
+        }}
+      >
+        <div
+          className="relative w-full h-full flex items-center justify-center"
+        >
+          ${events.map(function (event, idx) {
+            var offset = idx - activeIndex;
+            var isVisible = Math.abs(offset) <= 3;
+            if (!isVisible) return null;
+
+            return html`
+              <div
+                key=${yearKey + "-" + event.tag}
+                className="tag-carousel-item absolute text-xl tracking-widest whitespace-nowrap select-none"
+                style=${{
+                  transform:
+                    "translateX(" +
+                    offset * 93 +
+                    "px) scale(" +
+                    (offset === 0 ? 1.2 : 0.8) +
+                    ")",
+                  opacity: offset === 0 ? 1 : Math.abs(offset) <= 2 ? 0.3 : 0,
+                  zIndex: offset === 0 ? 5 : 0,
+                  cursor: "pointer",
+                }}
+                onClick=${function () {
+                  onChange(idx);
+                }}
+              >
+                ${event.tag}
+              </div>
+            `;
+          })}
+        </div>
+      </div>
+
+      <!-- Content -->
+      <div className="w-full relative min-h-[150px]">
+        ${events[activeIndex] &&
+        html`
+          <div
+            key=${events[activeIndex].tag}
+            className="event-content-enter absolute inset-0 text-base md:text-lg tracking-wider leading-loose opacity-80 text-center md:text-left whitespace-pre-line px-4 md:px-0"
+          >
+            ${events[activeIndex].content}
+          </div>
+        `}
+      </div>
+    </div>
+  `;
+}
+
+// 见闻视图主容器
+function EventsView(props) {
+  var events = props.events;
+  var eventsYear = props.eventsYear;
+  var setEventsYear = props.setEventsYear;
+  var activeEventIndex = props.activeEventIndex;
+  var setActiveEventIndex = props.setActiveEventIndex;
+
+  var currentEvents = events[eventsYear] || [];
+
+  // 计算年份下划线位置（往岁=0, 今岁=1, 来岁=2）
+  var yearItems = ["往岁", "今岁", "来岁"];
+  var yearIdx = yearItems.indexOf(eventsYear);
+  if (yearIdx < 0) yearIdx = 1;
+
+  return html`
+    <div
+      className="char-content-enter w-full max-w-3xl md:max-h-[550px] md:overflow-y-auto scroll-fade-mask"
+    >
+      <!-- Year Tabs -->
+      <div
+        className="flex gap-8 text-lg tracking-widest mb-4 border-b border-black/10 pb-4 justify-center md:justify-start select-none year-tabs-container"
+      >
+        ${yearItems.map(function (year, idx) {
+          return html`
+            <button
+              key=${year}
+              onClick=${function () {
+                setEventsYear(year);
+              }}
+              className=${"transition-opacity relative px-2 " +
+              (eventsYear === year
+                ? "opacity-100"
+                : "opacity-30 hover:opacity-60")}
+            >
+              ${year}
+              ${eventsYear === year &&
+              html`
+                <div
+                  className="absolute -bottom-[17px] left-0 right-0 h-[2px] bg-black"
+                />
+              `}
+            </button>
+          `;
+        })}
+      </div>
+
+      <!-- Sect Carousel & Content -->
+      <${EventCarousel}
+        events=${currentEvents}
+        activeIndex=${activeEventIndex}
+        onChange=${setActiveEventIndex}
+        yearKey=${eventsYear}
+      />
+    </div>
+  `;
+}

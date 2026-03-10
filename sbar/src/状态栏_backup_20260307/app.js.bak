@@ -1,0 +1,236 @@
+// ===== 主入口 =====
+// Mvu 优先读取，非酒馆环境 fallback 到 mock 数据
+
+// --- Mock 数据（本地预览用，酒馆内会被 Mvu 数据覆盖）---
+var MOCK_WORLD_INFO = {
+  year: "天宝十四年",
+  date: "二月初二",
+  timeName: "辰时",
+  timeNumber: "7:00",
+  location: "扬州",
+};
+var MOCK_CHARACTERS = [
+  {
+    name: "望野",
+    trust: 30,
+    sect: "七秀\u00B7云裳心经",
+    relationship: "挚友",
+    affairs: [
+      { content: "护送七秀弟子下山", timeLimit: "短期", status: "进行中" },
+    ],
+  },
+  {
+    name: "东方宇轩",
+    trust: 50,
+    sect: "万花\u00B7花间游",
+    relationship: "萍水相逢",
+    affairs: [
+      { content: "寻找稀有草药", timeLimit: "长期", status: "进行中" },
+      { content: "参与花朝诗会", timeLimit: "短期", status: "已完成" },
+    ],
+  },
+  {
+    name: "李承恩",
+    trust: 90,
+    sect: "天策\u00B7傲血战意",
+    relationship: "生死之交",
+    affairs: [{ content: "整备天策军务", timeLimit: "长期", status: "进行中" }],
+  },
+];
+var MOCK_GREGORIAN_YEAR = 755;
+
+// --- 数据初始化：Mvu 优先，fallback mock ---
+var _mvuData = readMvuData();
+var WORLD_INFO = _mvuData ? _mvuData.worldInfo : MOCK_WORLD_INFO;
+var CHARACTERS = _mvuData ? _mvuData.characters : MOCK_CHARACTERS;
+var GREGORIAN_YEAR = _mvuData ? _mvuData.gregorianYear : MOCK_GREGORIAN_YEAR;
+
+// Mock 见闻数据（从 App.tsx L200-240 复制）
+var EVENTS_DATA = {
+  往岁: [
+    {
+      tag: "天下",
+      content: "李林甫病逝，杨国忠继任右相。\n安禄山兼任河东节度使。",
+    },
+    { tag: "少林", content: "少林寺举行般若法会。" },
+  ],
+  今岁: [
+    {
+      tag: "天下",
+      content:
+        "安禄山入朝，任尚书左仆射。\n李隆基、杨玉环召见安禄山于华清宫，摆梨园宴。\n杨国忠遣李宓将兵七万攻南诏，败没。",
+    },
+    {
+      tag: "万花",
+      content:
+        "东方宇轩闭关不出，谷中事务由裴元代理。\n万花谷广招天下名医，似有大事发生。",
+    },
+    {
+      tag: "七秀",
+      content: "公孙大娘现身瘦西湖，剑舞动四方。\n七秀坊招收新弟子，门庭若市。",
+    },
+    {
+      tag: "天策",
+      content:
+        "李承恩下令全军备战，天策府日夜操练。\n长枪独守大唐魂，天策将士誓死卫国。",
+    },
+    {
+      tag: "纯阳",
+      content: "吕洞宾显圣，赐下纯阳秘籍。\n华山之巅，剑气冲天。",
+    },
+  ],
+  来岁: [
+    {
+      tag: "天下",
+      content: "安史之乱爆发，安禄山于范阳起兵。\n战火迅速蔓延至中原。",
+    },
+    { tag: "天策", content: "天策军死守洛阳，伤亡惨重。" },
+  ],
+};
+
+function App() {
+  // 角色状态（原 App.tsx L334）
+  var charIndexRef = React.useState(0);
+  var activeCharIndex = charIndexRef[0],
+    setActiveCharIndex = charIndexRef[1];
+
+  var viewModeRef = React.useState("人物");
+  var viewMode = viewModeRef[0],
+    setViewMode = viewModeRef[1];
+  var menuOpenRef = React.useState(false);
+  var menuOpen = menuOpenRef[0],
+    setMenuOpen = menuOpenRef[1];
+  var menuRef = React.useRef(null);
+  var menuRefMobile = React.useRef(null);
+
+  // 见闻状态（原 App.tsx L335-338）
+  var eventsYearRef = React.useState("今岁");
+  var eventsYear = eventsYearRef[0],
+    setEventsYear = eventsYearRef[1];
+  var eventIndexRef = React.useState(0);
+  var activeEventIndex = eventIndexRef[0],
+    setActiveEventIndex = eventIndexRef[1];
+
+  // 年份变更时重置事件索引（原 App.tsx L376-378）
+  React.useEffect(
+    function () {
+      setActiveEventIndex(0);
+    },
+    [eventsYear],
+  );
+
+  // 当前角色（原 App.tsx L372）
+  var activeChar = CHARACTERS[activeCharIndex];
+
+  // 角色切换（原 App.tsx L380-385）
+  var nextChar = function () {
+    setActiveCharIndex(function (prev) {
+      return (prev + 1) % CHARACTERS.length;
+    });
+  };
+  var prevChar = function () {
+    setActiveCharIndex(function (prev) {
+      return (prev - 1 + CHARACTERS.length) % CHARACTERS.length;
+    });
+  };
+
+  // 点击外部关闭菜单（原 App.tsx 345-358）
+  React.useEffect(
+    function () {
+      if (!menuOpen) return;
+      function handler(e) {
+        if (
+          menuRef.current &&
+          !menuRef.current.contains(e.target) &&
+          (!menuRefMobile.current || !menuRefMobile.current.contains(e.target))
+        ) {
+          setMenuOpen(false);
+        }
+      }
+      document.addEventListener("mousedown", handler);
+      return function () {
+        document.removeEventListener("mousedown", handler);
+      };
+    },
+    [menuOpen],
+  );
+
+  // 原 App.tsx 387: 根容器
+  return html`
+    <div className="min-h-screen p-6 md:p-12 lg:p-24 max-w-7xl mx-auto relative">
+      <${StatusHeader}
+        worldInfo=${WORLD_INFO}
+        viewMode=${viewMode}
+        onViewChange=${setViewMode}
+        menuOpen=${menuOpen}
+        setMenuOpen=${setMenuOpen}
+        menuRef=${menuRef}
+        menuRefMobile=${menuRefMobile}
+      >
+        <!-- 门派图标背景（CSS 淡入淡出） -->
+        <div className=${"view-fade" + (viewMode === "人物" ? " active" : "")}>
+          ${viewMode === "人物" && html`<${SectIconBackground} activeChar=${activeChar} />`}
+        </div>
+
+        <div style=${{ flex: 1 }}>
+        <!-- 主视图切换区（CSS 过渡） -->
+          ${
+            viewMode === "人物" &&
+            html`
+              <div className="view-fade active">
+                <${CharacterContent}
+                  activeChar=${activeChar}
+                  prevChar=${prevChar}
+                  nextChar=${nextChar}
+                />
+              </div>
+            `
+          }
+
+          ${
+            viewMode === "见闻" &&
+            html`
+              <div className="view-fade active">
+                <${EventsView}
+                  events=${EVENTS_DATA}
+                  eventsYear=${eventsYear}
+                  setEventsYear=${setEventsYear}
+                  activeEventIndex=${activeEventIndex}
+                  setActiveEventIndex=${setActiveEventIndex}
+                />
+              </div>
+            `
+          }
+
+          ${
+            viewMode === "舆图" &&
+            html`
+              <div className="view-fade active">
+                <${MapView}
+                  location=${WORLD_INFO.location}
+                  year=${GREGORIAN_YEAR}
+                />
+              </div>
+            `
+          }
+        </div>
+
+        <!-- 诗句（CSS 淡入淡出） -->
+        <div className=${"view-fade pt-8 mt-auto select-none pointer-events-none" + (viewMode !== "舆图" ? " active" : "")}>
+          ${
+            viewMode !== "舆图" &&
+            html`
+              <p
+                className="text-sm md:text-base tracking-[0.3em] opacity-50 text-center md:text-left"
+              >
+                待到秋来九月八，我花开后百花杀
+              </p>
+            `
+          }
+        </div>
+      </${StatusHeader}>
+    </div>
+  `;
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(html`<${App} />`);
