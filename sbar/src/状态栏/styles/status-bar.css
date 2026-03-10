@@ -1,0 +1,263 @@
+@import 'tailwindcss';
+
+/* stylelint-disable-next-line */
+@theme {
+  --breakpoint-sm: 30rem; /* 480px，宽手机子断点 */
+  --breakpoint-md: 45.5rem; /* ~729px，实测酒馆 iframe 在浏览器773px时的宽度 */
+}
+
+body {
+  color: #1a1919;
+  background-color: transparent;
+  background-image: none;
+  font-family: KingHwaOldSong, serif;
+  overflow-x: hidden;
+}
+.writing-vertical-rl {
+  writing-mode: vertical-rl;
+  text-orientation: upright;
+}
+::-webkit-scrollbar {
+  background: 0 0;
+  width: 0;
+}
+.scroll-fade-mask {
+  -webkit-mask-image: linear-gradient(#000 85%, #0000 100%);
+  mask-image: linear-gradient(#000 85%, #0000);
+}
+
+/* ========== 天下菜单过渡动画（替代 Framer Motion） ========== */
+.tianxia-panel {
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 0.25s ease-out,
+    transform 0.25s ease-out;
+}
+.tianxia-panel.mobile {
+  transform: translateX(10px);
+}
+.tianxia-panel.desktop {
+  transform: translateX(20px);
+}
+.tianxia-panel.open {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(0);
+}
+
+/* ========== 视图过渡动画（Vue Transition） ========== */
+.view-fade-enter-active,
+.view-fade-leave-active {
+  transition:
+    opacity 0.4s ease-out,
+    filter 0.4s ease-out;
+}
+.view-fade-enter-from,
+.view-fade-leave-to {
+  opacity: 0;
+  filter: blur(4px);
+}
+
+/* ========== 角色视图过渡动画 ========== */
+/* 门派图标 SVG：Vue Transition enter/leave */
+.sect-icon-enter-active,
+.sect-icon-leave-active {
+  transition:
+    opacity 0.6s ease-out,
+    transform 0.6s ease-out;
+}
+.sect-icon-enter-from {
+  opacity: 0;
+  transform: scale(0.9);
+}
+.sect-icon-leave-to {
+  opacity: 0;
+  transform: scale(1.1);
+}
+
+/* 角色名：Vue Transition enter/leave */
+.char-name-enter-active,
+.char-name-leave-active {
+  transition:
+    opacity 0.5s ease-out,
+    transform 0.5s ease-out,
+    filter 0.5s ease-out;
+}
+.char-name-enter-from {
+  opacity: 0;
+  transform: translateY(20px);
+  filter: blur(4px);
+}
+.char-name-leave-to {
+  opacity: 0;
+  transform: translateY(-20px);
+  filter: blur(4px);
+}
+
+/* 角色详情：Vue Transition enter/leave */
+.char-details-enter-active {
+  transition:
+    opacity 0.5s ease-out 0.1s,
+    transform 0.5s ease-out 0.1s;
+}
+.char-details-leave-active {
+  transition:
+    opacity 0.3s ease-out,
+    transform 0.3s ease-out;
+}
+.char-details-enter-from {
+  opacity: 0;
+  transform: translateX(-20px);
+}
+.char-details-leave-to {
+  opacity: 0;
+  transform: translateX(20px);
+}
+
+/* ========== 见闻视图过渡动画（替代 Framer Motion） ========== */
+/* 标签轮播：模拟 spring 物理 */
+.tag-carousel-item {
+  transition:
+    transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+    opacity 0.3s ease-out;
+}
+
+/* 内容切换入场 */
+@keyframes eventContentIn {
+  from {
+    opacity: 0;
+    filter: blur(4px);
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 0.8;
+    filter: blur(0px);
+    transform: translateY(0);
+  }
+}
+.event-content-enter {
+  animation: eventContentIn 0.4s ease-out both;
+}
+
+/* ========== 地图样式（从功能版 状态栏.html L115-225 迁移） ========== */
+.map-wrap {
+  width: 100%;
+  aspect-ratio: 4/3; /* 手机端单列：按宽度比例算高度 */
+  overflow: hidden;
+  position: relative;
+  background: #1a1a2e;
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
+  border-radius: 4px;
+}
+/* 桌面端：去掉 aspect-ratio，改由 flex 填充与年号对齐 */
+@media (min-width: 45.5rem) {
+  .map-wrap {
+    aspect-ratio: auto;
+    height: 100%;
+  }
+}
+.map-wrap:active {
+  cursor: grabbing;
+}
+.map-inner {
+  position: absolute;
+  width: 4920px;
+  height: 3456px;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+.map-base {
+  display: block;
+  width: 4920px;
+  height: 3456px;
+  pointer-events: none;
+}
+.map-traffic {
+  position: absolute;
+  pointer-events: none;
+  opacity: 0.7;
+  transition: opacity 0.5s ease;
+}
+.zoom-high .map-traffic {
+  opacity: 0;
+}
+.city-icon {
+  position: absolute;
+  transform: translateX(-50%);
+  object-fit: contain;
+  opacity: 1;
+  transition:
+    opacity 0.5s ease,
+    transform 0.2s ease,
+    filter 0.2s ease;
+  pointer-events: auto;
+  cursor: default;
+}
+.city-icon.clickable {
+  cursor: pointer;
+  will-change: transform, filter;
+  z-index: 50;
+}
+.city-icon.clickable:hover {
+  transform: translateX(-50%) scale(1.15);
+  filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.7)) drop-shadow(0 0 16px rgba(255, 255, 255, 0.4));
+  z-index: 60;
+}
+.city-name {
+  position: absolute;
+  pointer-events: none;
+  writing-mode: vertical-rl;
+  text-orientation: upright;
+  font-weight: bold;
+  white-space: nowrap;
+  color: #f0e6d3;
+  text-shadow:
+    0 0 6px rgba(0, 0, 0, 1),
+    0 0 12px rgba(0, 0, 0, 0.8),
+    2px 2px 4px rgba(0, 0, 0, 0.9);
+}
+.zone-view {
+  position: relative;
+  overflow: hidden;
+  margin-top: -40px;
+  width: calc(100% - 48px);
+}
+.zone-view img {
+  width: 100%;
+  display: block;
+  aspect-ratio: 1024 / 896;
+  margin-top: -3.8%;
+  margin-bottom: -3.5%;
+}
+.zone-back-btn {
+  position: absolute;
+  top: 10px;
+  left: 6px;
+  z-index: 10;
+  background: none;
+  border: none;
+  color: inherit;
+  font-size: 30px;
+  opacity: 0.7;
+  cursor: pointer;
+  padding: 8px;
+  line-height: 1;
+  transition: opacity 0.3s;
+  user-select: none;
+  text-shadow:
+    0 0 12px rgba(255, 255, 255, 0.9),
+    0 0 24px rgba(255, 255, 255, 0.6),
+    0 2px 6px rgba(255, 255, 255, 0.4);
+}
+.zone-back-btn:hover {
+  opacity: 1;
+}
+@media (max-width: 479px) {
+  .zone-back-btn {
+    font-size: 22px;
+    padding: 6px;
+  }
+}
