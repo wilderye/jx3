@@ -6,7 +6,7 @@
 export interface Affair {
   content: string;
   timeLimit: string;
-  status: string;
+  progress: string;
 }
 
 export interface Character {
@@ -77,13 +77,13 @@ function parseCharacters(renWu: Record<string, any> | undefined): Character[] {
   for (const [charName, info] of Object.entries(renWu)) {
     if (!info || typeof info !== 'object') continue;
     const affairs: Affair[] = [];
-    if (info.事务 && typeof info.事务 === 'object') {
-      for (const [taskName, taskInfo] of Object.entries(info.事务 as Record<string, any>)) {
+    if (info.差事 && typeof info.差事 === 'object') {
+      for (const [taskName, taskInfo] of Object.entries(info.差事 as Record<string, any>)) {
         if (taskInfo && typeof taskInfo === 'object') {
           affairs.push({
             content: taskName,
             timeLimit: taskInfo.时限 || '',
-            status: taskInfo.状态 || '',
+            progress: taskInfo.进展 || '',
           });
         }
       }
@@ -167,11 +167,11 @@ export async function writeMvuVariable(path: string, value: string | number, loc
 }
 
 /**
- * 重命名事务键名并刷新本地 reactive 对象
+ * 重命名差事键名并刷新本地 reactive 对象
  *
  * @param charName 角色名
- * @param oldKey   旧事务名
- * @param newKey   新事务名
+ * @param oldKey   旧差事名
+ * @param newKey   新差事名
  * @param localData 本地 reactive 的 MvuResult 对象
  */
 export async function renameTaskKey(
@@ -183,14 +183,14 @@ export async function renameTaskKey(
   if (oldKey === newKey) return;
   const msgId = getCurrentMessageId();
   const d = Mvu.getMvuData({ type: 'message', message_id: msgId });
-  const tasks = _.get(d, `stat_data.人物.${charName}.事务`);
+  const tasks = _.get(d, `stat_data.人物.${charName}.差事`);
   if (!tasks || !(oldKey in tasks)) return;
   // 按原顺序重建，仅替换目标键名
   const rebuilt: Record<string, any> = {};
   for (const key of Object.keys(tasks)) {
     rebuilt[key === oldKey ? newKey : key] = tasks[key];
   }
-  _.set(d, `stat_data.人物.${charName}.事务`, rebuilt);
+  _.set(d, `stat_data.人物.${charName}.差事`, rebuilt);
   await Mvu.replaceMvuData(d, { type: 'message', message_id: msgId });
 
   const fresh = readMvuData();

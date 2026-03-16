@@ -88,13 +88,12 @@
                   <span class="ml-2 text-xs opacity-50 md:text-sm">
                     <EditableText
                       :model-value="affair.timeLimit"
-                      :mvu-path="`人物.${activeChar.name}.事务.${affair.content}.时限`"
+                      :mvu-path="`人物.${activeChar.name}.差事.${affair.content}.时限`"
                     />
                     |
-                    <EditableEnum
-                      :model-value="affair.status"
-                      :mvu-path="`人物.${activeChar.name}.事务.${affair.content}.状态`"
-                      :options="['未开始', '进行中', '已完成']"
+                    <EditableText
+                      :model-value="affair.progress"
+                      :mvu-path="`人物.${activeChar.name}.差事.${affair.content}.进展`"
                     />
                   </span>
                 </span>
@@ -111,7 +110,7 @@
 interface Affair {
   content: string;
   timeLimit: string;
-  status: string;
+  progress: string;
 }
 
 interface Character {
@@ -132,7 +131,6 @@ import { SECT_ICONS } from '../data/sect-icons';
 import type { MusicPlayerState } from '../utils/music-bridge';
 import type { MvuResult } from '../utils/mvu-bridge';
 import { renameTaskKey } from '../utils/mvu-bridge';
-import EditableEnum from './EditableEnum.vue';
 import EditableText from './EditableText.vue';
 
 const mvuData = inject<MvuResult>('mvuData')!;
