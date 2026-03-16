@@ -30,12 +30,13 @@ const props = defineProps<{
 }>();
 
 const iconPaths = computed(() => {
-  const rawName = props.activeChar.sect.split('\u00B7')[0];
+  const sect = props.activeChar.sect;
+  const rawName = sect.split('\u00B7')[0];
   // 精确匹配
   if (SECT_ICONS[rawName]) return SECT_ICONS[rawName];
-  // 模糊匹配：归属名包含门派简称（如 "长歌门" 包含 "长歌"）
+  // 模糊匹配：在整个归属字符串中搜索门派简称
   for (const key of Object.keys(SECT_ICONS)) {
-    if (rawName.includes(key)) return SECT_ICONS[key];
+    if (sect.includes(key)) return SECT_ICONS[key];
   }
   return [];
 });
