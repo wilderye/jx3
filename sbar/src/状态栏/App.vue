@@ -3,6 +3,7 @@
     <StatusHeader
       ref="statusHeaderRef"
       :world-info="WORLD_INFO"
+      :gregorian-year="GREGORIAN_YEAR"
       :view-mode="viewMode"
       :on-view-change="(v: string) => (viewMode = v)"
       :menu-open="menuOpen"

@@ -52,7 +52,10 @@
       <div
         class="mb-10 flex flex-col items-center gap-2 text-lg tracking-widest opacity-80 select-none md:mb-16 md:items-start md:gap-3 md:text-xl"
       >
-        <div class="leading-none"><EditableText :model-value="worldInfo.date" mvu-path="世界.日期" /></div>
+        <div class="flex items-baseline leading-none">
+          <span class="mr-2 md:mr-3">{{ props.gregorianYear }}年</span>
+          <EditableText :model-value="worldInfo.date" mvu-path="世界.日期" />
+        </div>
         <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-base md:gap-x-6 md:text-lg">
           <span class="flex items-center gap-2">
             <span>{{ timeName }}</span>
@@ -76,6 +79,7 @@ import TianxiaMenu from './TianxiaMenu.vue';
 
 const props = defineProps<{
   worldInfo: { year: string; date: string; timeName: string; timeNumber: string; location: string };
+  gregorianYear: number;
   viewMode: string;
   onViewChange: (view: string) => void;
   menuOpen: boolean;

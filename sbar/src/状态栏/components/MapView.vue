@@ -163,139 +163,142 @@ function zoomMap(factor: number, cx?: number, cy?: number) {
   applyTransform();
 }
 
-// 世界地图初始化 + 事件绑定
-watch(
-  zoneMap,
-  () => {
-    if (zoneMap.value) return;
-    // 等 DOM 挂载
-    nextTick(() => {
-      const wrap = wrapRef.value;
-      if (!wrap || state.initialized) return;
-      state.initialized = true;
-      const ww = wrap.clientWidth;
-      const wh = wrap.clientHeight;
-      const fitScale = ww / MAP_W;
-      state.scale = fitScale * 2.2;
-      state.tx = ww / 2 - 3000 * state.scale;
-      state.ty = wh / 2 - 2200 * state.scale;
+// 世界地图居中初始化
+function initWorldMap() {
+  const wrap = wrapRef.value;
+  if (!wrap || state.initialized || zoneMap.value) return;
+  state.initialized = true;
+  const ww = wrap.clientWidth;
+  const wh = wrap.clientHeight;
+  const fitScale = ww / MAP_W;
+  state.scale = fitScale * 2.2;
+  state.tx = ww / 2 - 3000 * state.scale;
+  state.ty = wh / 2 - 2200 * state.scale;
+  applyTransform();
+}
+
+// 世界地图事件绑定（拖拽+缩放），返回清理函数
+function bindWorldMapEvents(): (() => void) | undefined {
+  const wrap = wrapRef.value;
+  if (!wrap) return;
+  const s = state;
+
+  function onMouseDown(e: MouseEvent) {
+    s.drag = true;
+    s.moved = false;
+    s.lx = e.clientX;
+    s.ly = e.clientY;
+  }
+  function onMouseMove(e: MouseEvent) {
+    if (!s.drag) return;
+    const dx = e.clientX - s.lx,
+      dy = e.clientY - s.ly;
+    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) s.moved = true;
+    s.tx += dx;
+    s.ty += dy;
+    s.lx = e.clientX;
+    s.ly = e.clientY;
+    applyTransform();
+  }
+  function onMouseUp() {
+    s.drag = false;
+  }
+  function onWheel(e: WheelEvent) {
+    e.preventDefault();
+    const r = wrap!.getBoundingClientRect();
+    zoomMap(e.deltaY < 0 ? 1.15 : 0.87, e.clientX - r.left, e.clientY - r.top);
+  }
+  function getDist(e: TouchEvent) {
+    return Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+  }
+  function getMid(e: TouchEvent) {
+    return {
+      x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+      y: (e.touches[0].clientY + e.touches[1].clientY) / 2,
+    };
+  }
+  function onTouchStart(e: TouchEvent) {
+    // 触碰按钮（如城市图标）时不拦截，让 click 事件正常合成
+    const t = e.target as HTMLElement;
+    if (t.closest('button') || t.closest('.city-icon.clickable')) return;
+    e.preventDefault();
+    if (e.touches.length === 1) {
+      s.drag = true;
+      s.moved = false;
+      s.tx2 = e.touches[0].clientX;
+      s.ty2 = e.touches[0].clientY;
+    } else if (e.touches.length === 2) {
+      s.drag = false;
+      s.td = getDist(e);
+      const m = getMid(e);
+      s.tx2 = m.x;
+      s.ty2 = m.y;
+    }
+  }
+  function onTouchMove(e: TouchEvent) {
+    e.preventDefault();
+    if (e.touches.length === 1 && s.drag) {
+      const dx = e.touches[0].clientX - s.tx2,
+        dy = e.touches[0].clientY - s.ty2;
+      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) s.moved = true;
+      s.tx += dx;
+      s.ty += dy;
+      s.tx2 = e.touches[0].clientX;
+      s.ty2 = e.touches[0].clientY;
       applyTransform();
-    });
-  },
-  { immediate: true },
-);
+    } else if (e.touches.length === 2) {
+      const d = getDist(e),
+        m = getMid(e),
+        r = wrap!.getBoundingClientRect();
+      zoomMap(d / s.td, m.x - r.left, m.y - r.top);
+      s.tx += m.x - s.tx2;
+      s.ty += m.y - s.ty2;
+      s.td = d;
+      s.tx2 = m.x;
+      s.ty2 = m.y;
+      applyTransform();
+    }
+  }
+  function onTouchEnd(e: TouchEvent) {
+    if (!e.touches.length) s.drag = false;
+  }
 
-// 世界地图事件监听
-watch(
-  zoneMap,
-  val => {
-    if (val) return;
-    nextTick(() => {
-      const wrap = wrapRef.value;
-      if (!wrap) return;
-      const s = state;
+  wrap.addEventListener('mousedown', onMouseDown);
+  window.addEventListener('mousemove', onMouseMove);
+  window.addEventListener('mouseup', onMouseUp);
+  wrap.addEventListener('wheel', onWheel, { passive: false });
+  wrap.addEventListener('touchstart', onTouchStart, { passive: false });
+  wrap.addEventListener('touchmove', onTouchMove, { passive: false });
+  wrap.addEventListener('touchend', onTouchEnd);
 
-      function onMouseDown(e: MouseEvent) {
-        s.drag = true;
-        s.moved = false;
-        s.lx = e.clientX;
-        s.ly = e.clientY;
-      }
-      function onMouseMove(e: MouseEvent) {
-        if (!s.drag) return;
-        const dx = e.clientX - s.lx,
-          dy = e.clientY - s.ly;
-        if (Math.abs(dx) > 3 || Math.abs(dy) > 3) s.moved = true;
-        s.tx += dx;
-        s.ty += dy;
-        s.lx = e.clientX;
-        s.ly = e.clientY;
-        applyTransform();
-      }
-      function onMouseUp() {
-        s.drag = false;
-      }
-      function onWheel(e: WheelEvent) {
-        e.preventDefault();
-        const r = wrap!.getBoundingClientRect();
-        zoomMap(e.deltaY < 0 ? 1.15 : 0.87, e.clientX - r.left, e.clientY - r.top);
-      }
-      function getDist(e: TouchEvent) {
-        return Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-      }
-      function getMid(e: TouchEvent) {
-        return {
-          x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
-          y: (e.touches[0].clientY + e.touches[1].clientY) / 2,
-        };
-      }
-      function onTouchStart(e: TouchEvent) {
-        // 触碰按钮（如城市图标）时不拦截，让 click 事件正常合成
-        const t = e.target as HTMLElement;
-        if (t.closest('button') || t.closest('.city-icon.clickable')) return;
-        e.preventDefault();
-        if (e.touches.length === 1) {
-          s.drag = true;
-          s.moved = false;
-          s.tx2 = e.touches[0].clientX;
-          s.ty2 = e.touches[0].clientY;
-        } else if (e.touches.length === 2) {
-          s.drag = false;
-          s.td = getDist(e);
-          const m = getMid(e);
-          s.tx2 = m.x;
-          s.ty2 = m.y;
-        }
-      }
-      function onTouchMove(e: TouchEvent) {
-        e.preventDefault();
-        if (e.touches.length === 1 && s.drag) {
-          const dx = e.touches[0].clientX - s.tx2,
-            dy = e.touches[0].clientY - s.ty2;
-          if (Math.abs(dx) > 3 || Math.abs(dy) > 3) s.moved = true;
-          s.tx += dx;
-          s.ty += dy;
-          s.tx2 = e.touches[0].clientX;
-          s.ty2 = e.touches[0].clientY;
-          applyTransform();
-        } else if (e.touches.length === 2) {
-          const d = getDist(e),
-            m = getMid(e),
-            r = wrap!.getBoundingClientRect();
-          zoomMap(d / s.td, m.x - r.left, m.y - r.top);
-          s.tx += m.x - s.tx2;
-          s.ty += m.y - s.ty2;
-          s.td = d;
-          s.tx2 = m.x;
-          s.ty2 = m.y;
-          applyTransform();
-        }
-      }
-      function onTouchEnd(e: TouchEvent) {
-        if (!e.touches.length) s.drag = false;
-      }
+  return () => {
+    wrap.removeEventListener('mousedown', onMouseDown);
+    window.removeEventListener('mousemove', onMouseMove);
+    window.removeEventListener('mouseup', onMouseUp);
+    wrap.removeEventListener('wheel', onWheel);
+    wrap.removeEventListener('touchstart', onTouchStart);
+    wrap.removeEventListener('touchmove', onTouchMove);
+    wrap.removeEventListener('touchend', onTouchEnd);
+  };
+}
 
-      wrap.addEventListener('mousedown', onMouseDown);
-      window.addEventListener('mousemove', onMouseMove);
-      window.addEventListener('mouseup', onMouseUp);
-      wrap.addEventListener('wheel', onWheel, { passive: false });
-      wrap.addEventListener('touchstart', onTouchStart, { passive: false });
-      wrap.addEventListener('touchmove', onTouchMove, { passive: false });
-      wrap.addEventListener('touchend', onTouchEnd);
-
-      onWatcherCleanup(() => {
-        wrap.removeEventListener('mousedown', onMouseDown);
-        window.removeEventListener('mousemove', onMouseMove);
-        window.removeEventListener('mouseup', onMouseUp);
-        wrap.removeEventListener('wheel', onWheel);
-        wrap.removeEventListener('touchstart', onTouchStart);
-        wrap.removeEventListener('touchmove', onTouchMove);
-        wrap.removeEventListener('touchend', onTouchEnd);
-      });
-    });
-  },
-  { immediate: true },
-);
+// 世界地图 watcher：从区域地图返回时重新初始化位置和事件
+// 注意：不使用 immediate，因为首次初始化由 onMounted 负责
+// （immediate 的 nextTick 在 onMounted 之前执行，此时 wrapRef 为空）
+let worldMapCleanup: (() => void) | undefined;
+watch(zoneMap, val => {
+  if (val) {
+    // 切换到区域地图时清理世界地图事件
+    worldMapCleanup?.();
+    worldMapCleanup = undefined;
+    return;
+  }
+  // 从区域地图返回世界地图
+  nextTick(() => {
+    initWorldMap();
+    worldMapCleanup = bindWorldMapEvents();
+  });
+});
 
 // ===== 城市点击 → 区域地图 =====
 function onCityClick(idx: number) {
@@ -324,12 +327,18 @@ function onZoneBack() {
 }
 
 // 自动匹配：首次进入时根据 location 显示区域地图
+// 如无匹配，初始化世界地图（位置 + 事件），保证首次渲染正确
 onMounted(() => {
-  if (!props.location) return;
-  const matched = matchZoneMap(props.location, props.year);
-  if (matched && matched.zoneMap) {
-    zoneMap.value = matched.zoneMap;
+  if (props.location) {
+    const matched = matchZoneMap(props.location, props.year);
+    if (matched && matched.zoneMap) {
+      zoneMap.value = matched.zoneMap;
+      return;
+    }
   }
+  // 无 location 或无匹配 → 初始化世界地图
+  initWorldMap();
+  worldMapCleanup = bindWorldMapEvents();
 });
 
 // ===== 区域地图引擎 =====
