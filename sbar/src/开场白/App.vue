@@ -392,9 +392,9 @@ async function onFinalConfirm() {
           <span class="bgm-text" @click="toggleMusic">{{ isPlaying ? '止' : '奏' }}</span>
         </div>
 
-        <!-- 中央巨大的启字 (点击进入门派选择) -->
+        <!-- 中央"入门"文字 (点击进入门派选择) -->
         <div class="unseal-center" @click="startJourney">
-          <div class="unseal-text">启</div>
+          <div class="unseal-text">入门</div>
         </div>
       </div>
 
@@ -806,18 +806,18 @@ async function onFinalConfirm() {
 }
 .bgm-text {
   font-family: KingHwaOldSong, serif;
-  font-size: 2.5cqh;
+  font-size: 3.5cqh;
   letter-spacing: 0.2em;
 }
 .bgm-curve {
-  width: 9cqw; /* 加长 */
-  height: 0.6cqh; /* 使曲线视觉本身明显 */
+  width: 12cqw; /* 加长 */
+  height: 0.8cqh; /* 使曲线视觉本身明显 */
   padding: 2cqh 0; /* 扩大上下点击热区，不改变外观 */
   box-sizing: content-box; /* 让 padding 算在元素总高度之外，增加可点击区域 */
   opacity: 0.8;
 }
 
-/* 启字：屏幕中央 */
+/* 入门：屏幕中央 */
 .unseal-center {
   z-index: 20;
   display: flex;
@@ -828,7 +828,7 @@ async function onFinalConfirm() {
 }
 .unseal-text {
   font-family: KingHwaOldSong, serif;
-  font-size: 15cqh;
+  font-size: 20cqh;
   color: #111;
   opacity: 0.6;
   transition:
