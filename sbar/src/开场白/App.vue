@@ -6,6 +6,7 @@ import { /* SECT_ICONS, */ SECT_QUOTES, SECTS, SKILL_ICONS } from './data/sects'
 // ===== 阶段管理 =====
 type Stage = 'unseal' | 'sect' | 'skill' | 'farewell';
 const stage = ref<Stage>('unseal');
+const isMobile = window.matchMedia('(max-width: 479px)').matches;
 
 // ===== 阶段0：启封 =====
 
@@ -181,7 +182,7 @@ function onSectEnter(el: Element, done: () => void) {
       onComplete: () => {
         // 清除GSAP残留的内联样式(transform/filter/opacity)，否则会影响flex布局
         gsap.set(el, { clearProps: 'all' });
-        startBreathingAnimations();
+        if (!isMobile) startBreathingAnimations();
         done();
       },
     },
@@ -210,11 +211,12 @@ function onSectLeave(el: Element, done: () => void) {
 const breathingTweens: gsap.core.Tween[] = [];
 
 const BREATHING_CONFIG = [
-  /* 原始周期: 13.7 / 17.3 / 23.1 / 19.5 （当前为 ×0.4，快2.5倍） */
-  { y: -10, blurFrom: 2, blurTo: 3, opFrom: 0.03, opTo: 0.04, dur: 5.48, del: 0 },
-  { y: 10, blurFrom: 0.2, blurTo: 0.6, opFrom: 0.03, opTo: 0.04, dur: 6.92, del: 0.96 },
-  { y: -12, blurFrom: 3, blurTo: 4, opFrom: 0.02, opTo: 0.03, dur: 9.24, del: 2.28 },
-  { y: 8, blurFrom: 1, blurTo: 2, opFrom: 0.03, opTo: 0.05, dur: 7.8, del: 0.72 },
+  /* y=浮动幅度(px), dur=半周期(秒)
+   * 大字(25/33cqh)幅度小，小字(12/17cqh)幅度大；周期各不同，自然错开 */
+  { y: -8, blurFrom: 2, blurTo: 3, opFrom: 0.03, opTo: 0.04, dur: 5.5, del: 0 } /* 诗句0: 25cqh 大字 ↑ */,
+  { y: 18, blurFrom: 0.2, blurTo: 0.6, opFrom: 0.03, opTo: 0.04, dur: 7.3, del: 0 } /* 诗句1: 12cqh 小字 ↓ */,
+  { y: -6, blurFrom: 3, blurTo: 4, opFrom: 0.02, opTo: 0.03, dur: 9.2, del: 0 } /* 诗句2: 33cqh 最大字 ↑ */,
+  { y: 14, blurFrom: 1, blurTo: 2, opFrom: 0.03, opTo: 0.05, dur: 6.1, del: 0 } /* 诗句3: 17cqh 中字 ↓ */,
 ];
 
 function startBreathingAnimations() {
@@ -222,12 +224,12 @@ function startBreathingAnimations() {
   refs.forEach((el, i) => {
     if (!el) return;
     const c = BREATHING_CONFIG[i];
-    // 初始状态
-    gsap.set(el, { y: 0, opacity: c.opFrom });
-    // yoyo 呼吸循环（只动画 y 和 opacity，blur 保持 CSS 静态值，避免掉帧）
+    // 初始状态（opacity 已注释，由 CSS 静态值控制）
+    gsap.set(el, { y: 0 /* , opacity: c.opFrom */ });
+    // yoyo 呼吸循环 — 仅做 y 轴浮动，opacity/blur 由各 .macro-line--N 的 CSS 静态值控制
     const tween = gsap.to(el, {
       y: c.y,
-      opacity: c.opTo,
+      // opacity: c.opTo,  // ← 取消注释可恢复透明度呼吸
       duration: c.dur / 2,
       delay: c.del,
       ease: 'sine.inOut',
@@ -287,7 +289,7 @@ watch(
   val => {
     if (val === 'sect') {
       // Transition enter 完成后会启动, 但首次需要手动触发
-      requestAnimationFrame(() => startBreathingAnimations());
+      if (!isMobile) requestAnimationFrame(() => startBreathingAnimations());
     }
   },
   { immediate: true },
@@ -374,8 +376,7 @@ async function onFinalConfirm() {
         <div class="bgm-control">
           <!-- 音量曲线（点击调节音量） -->
           <svg
-            v-show="isPlaying"
-            class="bgm-curve"
+            :class="['bgm-curve', { 'bgm-curve--hidden': !isPlaying }]"
             viewBox="0 0 100 30"
             preserveAspectRatio="none"
             @mousedown="onVolumeDragStart"
@@ -410,7 +411,7 @@ async function onFinalConfirm() {
         <div class="noise-texture"></div>
 
         <!-- 门派溶解切换 -->
-        <Transition :css="false" mode="out-in" @enter="onSectEnter" @leave="onSectLeave">
+        <Transition :css="false" appear mode="out-in" @enter="onSectEnter" @appear="onSectEnter" @leave="onSectLeave">
           <div :key="selectedSect.name" class="sect-scene">
             <!-- 宏观诗词纹理层 -->
             <div class="macro-poetry-layer">
@@ -430,7 +431,7 @@ async function onFinalConfirm() {
 
             <!-- 核心视觉层 -->
             <div class="core-visual">
-              <h1 class="sect-name">{{ selectedSect.name }}</h1>
+              <h1 class="sect-name" @click="confirmSect">{{ selectedSect.name }}</h1>
             </div>
 
             <!-- 印章 -->
@@ -493,8 +494,7 @@ async function onFinalConfirm() {
         <!-- 音乐控件（与启封页一致） -->
         <div class="bgm-control">
           <svg
-            v-show="isPlaying"
-            class="bgm-curve"
+            :class="['bgm-curve', { 'bgm-curve--hidden': !isPlaying }]"
             viewBox="0 0 100 30"
             preserveAspectRatio="none"
             @mousedown="onVolumeDragStart"
@@ -600,37 +600,49 @@ async function onFinalConfirm() {
   filter: blur(2.5px);
 }
 
-/* [4] absolute -top-[60%] left-[5%] text-[22vh] tracking-[0.2em] → 左上角 */
+/* ===== 电脑端 · 宏观诗句逐句调整 =====
+ * opacity → 透明度（越大越清晰，0=不可见，1=完全不透明）
+ * blur    → 模糊度（越大越模糊，0px=完全清晰）
+ */
+
+/* 诗句0 — 左上角大字 */
 .macro-line--0 {
   top: -60%;
-  left: 5%;
-  font-size: 22cqh;
+  left: 0%;
+  font-size: 25cqh;
   letter-spacing: 0.2em;
+  opacity: 0.037; /* ← 调整透明度 */
+  filter: blur(3px); /* ← 调整模糊 */
 }
 
-/* [5] absolute top-[15%] left-[25%] text-[12vh] tracking-[0.5em] → 中偏左 */
+/* 诗句1 — 中偏左 */
 .macro-line--1 {
-  top: 15%;
+  top: 25%;
   left: 25%;
   font-size: 12cqh;
   letter-spacing: 0.5em;
+  opacity: 0.045; /* ← 调整透明度 */
+  filter: blur(1.2px); /* ← 调整模糊 */
 }
 
-/* [6] absolute -bottom-[10%] right-[20%] text-[30vh] tracking-[0.1em] → 右下 */
+/* 诗句2 — 右下大字 */
 .macro-line--2 {
-  bottom: -10%;
+  bottom: -5%;
   right: 20%;
-  font-size: 30cqh;
+  font-size: 33cqh;
   letter-spacing: 0.1em;
-  opacity: 0.02; /* 覆盖共用的0.03，与BREATHING_CONFIG[2].opFrom一致 */
+  opacity: 0.03; /* ← 调整透明度 */
+  filter: blur(4px); /* ← 调整模糊 */
 }
 
-/* [7] absolute -top-[65%] right-[5%] text-[14vh] tracking-[0.3em] → 右上 */
+/* 诗句3 — 右上 */
 .macro-line--3 {
-  top: -65%;
+  top: -80%;
   right: 5%;
-  font-size: 14cqh;
+  font-size: 17cqh;
   letter-spacing: 0.3em;
+  opacity: 0.04; /* ← 调整透明度 */
+  filter: blur(2px); /* ← 调整模糊 */
 }
 
 /* 门派图标装饰层（已注释，可恢复）
@@ -684,18 +696,18 @@ async function onFinalConfirm() {
  */
 .micro-line--top-left {
   top: -5%; /* ← 上下位置 */
-  left: 0; /* ← 左右位置 */
-  font-size: 1.8cqh; /* ← 字号 */
-  letter-spacing: 1em; /* ← 字间距 */
+  left: -2%; /* ← 左右位置 */
+  font-size: 2cqh; /* ← 字号 */
+  letter-spacing: 1.2em; /* ← 字间距 */
   opacity: 0.5; /* ← 透明度 */
 }
 
 /* [11] 微观诗词 · 右下（已统一为与左上相同的样式） */
 .micro-line--bottom-right {
   bottom: -5%; /* ← 上下位置 */
-  right: 0; /* ← 左右位置 */
-  font-size: 1.8cqh; /* ← 字号 */
-  letter-spacing: 1em; /* ← 字间距（原2em，已统一） */
+  right: -2%; /* ← 左右位置 */
+  font-size: 2cqh; /* ← 字号 */
+  letter-spacing: 1.2em; /* ← 字间距（原2em，已统一） */
   opacity: 0.5; /* ← 透明度（原0.4，已统一） */
 }
 
@@ -717,6 +729,7 @@ async function onFinalConfirm() {
   letter-spacing: 0.1em;
   writing-mode: vertical-rl;
   filter: drop-shadow(0 25px 25px rgba(0, 0, 0, 0.15));
+  cursor: pointer;
 }
 
 /* 印章图片（定位参照：sect-scene，尺寸稳定不跳位）
@@ -765,7 +778,9 @@ async function onFinalConfirm() {
   padding: 16px;
   color: #111;
   opacity: 0.2;
-  transition: opacity 0.5s;
+  transition:
+    opacity 0.3s,
+    transform 0.3s;
   pointer-events: auto;
   outline: none;
   cursor: pointer;
@@ -774,6 +789,10 @@ async function onFinalConfirm() {
 }
 .sect-nav-arrow:hover {
   opacity: 1;
+  transform: scale(1.15);
+}
+.sect-nav-arrow:active {
+  transform: scale(0.9);
 }
 
 /* ===== 阶段0：启封 ===== */
@@ -956,6 +975,7 @@ async function onFinalConfirm() {
   justify-content: center;
   cursor: pointer;
   pointer-events: auto;
+  transform: translateX(5cqw); /* ← 调整左右偏移，正值往右 */
 }
 .farewell-text {
   font-family: KingHwaOldSong, serif;
@@ -979,6 +999,247 @@ async function onFinalConfirm() {
   }
   100% {
     transform: translateY(-0.5cqh);
+  }
+}
+
+/* 音量曲线隐藏态（替代 v-show，始终占位不跳动） */
+.bgm-curve--hidden {
+  opacity: 0 !important;
+  pointer-events: none;
+}
+
+/* ===== 手机端响应式 (< 480px) ===== */
+@media (max-width: 479px) {
+  /* 所有阶段：16:9 → 3:4 竖版 */
+  .unseal-stage,
+  .sect-stage,
+  .skill-stage,
+  .farewell-stage {
+    aspect-ratio: 3 / 4;
+  }
+
+  /* 统一四周模糊渐变 (sect-stage 已有，其余补上) */
+  .unseal-stage,
+  .skill-stage,
+  .farewell-stage {
+    mask-image: linear-gradient(to bottom, transparent 0%, black 6%, black 94%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 6%, black 94%, transparent 100%);
+  }
+
+  /* --- Step 2: 入门页 --- */
+  /* 奏/音量 → 底部居中 */
+  .bgm-control {
+    top: auto;
+    right: auto;
+    bottom: 8cqh;
+    left: 50%;
+    transform: translateX(-50%);
+    flex-direction: column-reverse; /* 音量曲线在上，文字在下 */
+    gap: 0.5cqh;
+  }
+  .bgm-curve {
+    width: 35cqw; /* 手机端音量条加宽方便触控精调 */
+  }
+
+  /* 手机端无悬浮，入门直接使用 hover 态颜色 */
+  .unseal-text {
+    opacity: 1;
+  }
+  .unseal-center {
+    transform: translateY(-8cqh); /* 视觉居中偏上 */
+  }
+  .unseal-center:hover .unseal-text {
+    transform: none;
+    opacity: 1;
+  }
+  .farewell-center:hover .farewell-text {
+    transform: none;
+    opacity: 0.5;
+  }
+
+  /* --- Step 3: 门派页 --- */
+
+  /* 3a: 门派名 — 竖版画幅下按宽度缩放 */
+  .sect-name {
+    font-size: 33cqw;
+  }
+
+  /* 3b: 宏观诗句 — 适配 3:4 竖版，散落错开 */
+  .macro-line--0 {
+    top: -7%;
+    left: -20%;
+    font-size: 37cqw;
+    letter-spacing: 0.4em;
+    opacity: 0.05;
+    filter: blur(3px);
+    animation: macroBreath0 5.48s ease-in-out infinite;
+  }
+  .macro-line--1 {
+    top: 80%;
+    left: 35%;
+    right: auto;
+    font-size: 6.5cqw;
+    opacity: 0.18;
+    filter: blur(0.5px);
+    animation: macroBreath1 6.92s ease-in-out 0.96s infinite;
+  }
+  .macro-line--2 {
+    bottom: 40%;
+    right: 13%;
+    left: auto;
+    font-size: 18cqw;
+    opacity: 0.04;
+    letter-spacing: 0.4em;
+    filter: blur(0.8px);
+    animation: macroBreath2 9.24s ease-in-out 2.28s infinite;
+  }
+  .macro-line--3 {
+    top: auto;
+    bottom: -15%;
+    right: -7.5%;
+    font-size: 10cqw;
+    opacity: 0.08;
+    letter-spacing: 0.4em;
+    filter: blur(1px);
+    animation: macroBreath3 7.8s ease-in-out 0.72s infinite;
+  }
+
+  /* 手机端宏观诗句呼吸（仅轻微上下移动，周期同电脑端） */
+  @keyframes macroBreath0 {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-8px);
+    }
+  }
+  @keyframes macroBreath1 {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(8px);
+    }
+  }
+  @keyframes macroBreath2 {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-10px);
+    }
+  }
+  @keyframes macroBreath3 {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(8px);
+    }
+  }
+
+  /* 3c: 微观诗句 — 紧贴门派名，不再用80%定位框 */
+  .micro-poetry-box {
+    width: auto;
+    height: auto;
+    position: static;
+  }
+  .micro-line--top-left {
+    /* 定位参照 sect-scene (micro-poetry-layer absolute inset-0) */
+    top: 6%;
+    left: 30%;
+    font-size: 3cqw;
+    letter-spacing: 0.8em;
+    opacity: 0.6;
+  }
+  .micro-line--bottom-right {
+    bottom: 4%;
+    right: 30%;
+    font-size: 3cqw;
+    letter-spacing: 0.8em;
+    opacity: 0.6;
+  }
+
+  /* 3d: 导航箭头位置与大小 */
+  .sect-nav {
+    align-items: center; /* ← 垂直：flex-start(顶) / center(中) / flex-end(底) */
+    padding: 0; /* 容器内边距清零 */
+  }
+  .sect-nav-arrow {
+    font-size: 2em; /* ← 箭头大小适当加大 */
+    padding: 8px; /* ← 点击热区 */
+    opacity: 0.3; /* ← 透明度 */
+  }
+  /* 抵消中文字体符号（〈 〉）自带的巨大留白，将箭头硬拽到屏幕边缘 */
+  .sect-nav-arrow:first-child {
+    margin-left: -5cqw; /* ← 增大负值可以让左箭头更靠左 */
+  }
+  .sect-nav-arrow:last-child {
+    margin-right: -5cqw; /* ← 增大负值可以让右箭头更靠右 */
+  }
+
+  /* 印章隐藏 */
+  .stamp {
+    display: none;
+  }
+
+  /* --- Step 4: 心法页 --- */
+
+  /* 切换门派文字微调 */
+  .skill-back {
+    font-size: 3cqw;
+    top: 4%; /* ← 与左上微观诗句顶部对齐 */
+  }
+
+  /* 微观诗句（心法页和去罢页共用，贴近屏幕顶部/底部边缘）*/
+  .skill-stage .micro-line--top-left,
+  .farewell-stage .micro-line--top-left {
+    top: 4%; /* ← 离顶部边缘的距离 */
+    left: 8%;
+    font-size: 3cqw;
+  }
+  .skill-stage .micro-line--bottom-right,
+  .farewell-stage .micro-line--bottom-right {
+    bottom: 4%; /* ← 离底部边缘的距离 */
+    right: 8%;
+    font-size: 3cqw;
+  }
+
+  /* 心法网格 — 手机端改为纵排 */
+  .skill-grid {
+    flex-direction: column;
+    gap: 8cqh; /* 上下间距 */
+  }
+
+  /* 心法图标与文字 — 改用 cqw 响应基准 */
+  .skill-icon {
+    width: 35cqw; /* 缩小图标 */
+    height: 35cqw;
+  }
+  .skill-name {
+    font-size: 5cqw;
+  }
+
+  /* --- Step 5: 去罢（过渡页） --- */
+  /* BGM 控件与微观诗句自动继承 Step 2 和 Step 4 的手机端排布 */
+  .farewell-stage .bgm-control {
+    bottom: 4cqh; /* ← 去罢页 BGM 控件离底部的距离，比入门页(8cqh)更贴底 */
+  }
+  .farewell-center {
+    transform: translateY(-2cqh); /* 稍微上移以平衡底部 BGM 控件 */
+  }
+  .farewell-text {
+    font-size: 15cqw;
+    opacity: 0.8; /* ← 手机端无悬浮，直接用较深颜色 */
+    text-indent: 1.5em; /* ← 抵消句号的视觉偏移，调大/调小看效果 */
+  }
+  .farewell-center:hover .farewell-text {
+    transform: none;
+    opacity: 0.8;
   }
 }
 </style>
