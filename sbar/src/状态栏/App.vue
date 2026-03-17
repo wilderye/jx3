@@ -74,7 +74,7 @@ if (!mvuData) {
 // --- 解包数据 ---
 const WORLD_INFO = mvuData.worldInfo;
 const CHARACTERS = mvuData.characters;
-const GREGORIAN_YEAR = mvuData.gregorianYear;
+const GREGORIAN_YEAR = computed(() => mvuData.gregorianYear);
 
 // ===== 从年代表生成见闻数据 =====
 /** 将某一年的年代表数据转换为 {tag, content}[] */
@@ -99,11 +99,11 @@ function buildYearEvents(year: number): Array<{ tag: string; content: string }> 
   return events;
 }
 
-const EVENTS_DATA: Record<string, Array<{ tag: string; content: string }>> = {
-  往岁: buildYearEvents(GREGORIAN_YEAR - 1),
-  今岁: buildYearEvents(GREGORIAN_YEAR),
-  来岁: buildYearEvents(GREGORIAN_YEAR + 1),
-};
+const EVENTS_DATA = computed(() => ({
+  往岁: buildYearEvents(GREGORIAN_YEAR.value - 1),
+  今岁: buildYearEvents(GREGORIAN_YEAR.value),
+  来岁: buildYearEvents(GREGORIAN_YEAR.value + 1),
+}));
 
 // ===== 状态 =====
 const activeCharIndex = ref(0);

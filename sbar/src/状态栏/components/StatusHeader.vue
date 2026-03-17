@@ -52,18 +52,27 @@
       <div
         class="mb-10 flex flex-col items-center gap-2 text-lg tracking-widest opacity-80 select-none md:mb-16 md:items-start md:gap-3 md:text-xl"
       >
-        <div class="flex items-baseline leading-none">
-          <span class="mr-2 md:mr-3">{{ props.gregorianYear }}年</span>
+        <div class="flex items-baseline leading-tight">
+          <span class="mr-2 md:mr-3"
+            ><EditableText
+              :model-value="props.gregorianYear"
+              mvu-path="世界.公元年"
+              input-type="number"
+              input-width="3.5em"
+            />年</span
+          >
           <EditableText :model-value="worldInfo.date" mvu-path="世界.日期" />
         </div>
-        <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-base md:gap-x-6 md:text-lg">
+        <div
+          class="mt-2 flex flex-wrap justify-center gap-x-4 gap-y-1 text-base md:justify-start md:gap-x-6 md:text-lg"
+        >
           <span class="flex items-center gap-2">
             <span>{{ timeName }}</span>
             <span class="font-serif text-base tracking-normal opacity-60 md:text-lg"
               ><EditableText :model-value="timeNumber" mvu-path="世界.时间"
             /></span>
           </span>
-          <EditableText :model-value="worldInfo.location" mvu-path="世界.地点" />
+          <EditableText :model-value="worldInfo.location" mvu-path="世界.地点" input-width="10em" />
         </div>
       </div>
 

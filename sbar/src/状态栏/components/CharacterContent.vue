@@ -56,7 +56,7 @@
         <Transition name="char-details" mode="out-in">
           <div
             :key="activeChar.name"
-            class="absolute flex w-full flex-col items-center gap-2 text-base tracking-widest opacity-80 select-none sm:items-start md:items-start md:gap-4 md:text-xl"
+            class="absolute flex w-full flex-col items-center gap-2 text-center text-base tracking-widest opacity-80 select-none sm:items-start sm:text-left md:items-start md:gap-4 md:text-xl"
           >
             <div class="flex items-center gap-4">
               <span>{{ trustStageName }}</span>
@@ -68,7 +68,13 @@
                 />
               </span>
             </div>
-            <div><EditableText :model-value="activeChar.sect" :mvu-path="`人物.${activeChar.name}.归属`" /></div>
+            <div>
+              <EditableText
+                :model-value="activeChar.sect"
+                :mvu-path="`人物.${activeChar.name}.归属`"
+                input-width="10em"
+              />
+            </div>
             <div>
               <EditableText :model-value="activeChar.relationship" :mvu-path="`人物.${activeChar.name}.关系`" />
             </div>
@@ -83,17 +89,20 @@
                   <EditableText
                     :model-value="affair.content"
                     mvu-path=""
+                    input-width="10em"
                     :on-write="(newName: string) => renameTask(activeChar.name, affair.content, newName)"
                   />
                   <span class="ml-2 text-xs opacity-50 md:text-sm">
                     <EditableText
                       :model-value="affair.timeLimit"
                       :mvu-path="`人物.${activeChar.name}.差事.${affair.content}.时限`"
+                      input-width="8em"
                     />
                     |
                     <EditableText
                       :model-value="affair.progress"
                       :mvu-path="`人物.${activeChar.name}.差事.${affair.content}.进展`"
+                      input-width="8em"
                     />
                   </span>
                 </span>
@@ -139,12 +148,15 @@ async function renameTask(charName: string, oldKey: string, newKey: string) {
   await renameTaskKey(charName, oldKey, newKey, mvuData);
 }
 
-// 门派图标路径
+// 门派图标路径（与 SectIconBackground.vue 保持一致）
 const iconPaths = computed(() => {
-  const rawName = props.activeChar.sect.split('\u00B7')[0];
+  const sect = props.activeChar.sect;
+  const rawName = sect.split('\u00B7')[0];
+  // 精确匹配
   if (SECT_ICONS[rawName]) return SECT_ICONS[rawName];
+  // 模糊匹配：在整个归属字符串中搜索门派简称
   for (const key of Object.keys(SECT_ICONS)) {
-    if (rawName.includes(key)) return SECT_ICONS[key];
+    if (sect.includes(key)) return SECT_ICONS[key];
   }
   return [];
 });

@@ -10,6 +10,7 @@
       v-model="draft"
       class="edit-input"
       :type="inputType"
+      :style="inputWidth ? { width: inputWidth } : {}"
       @keydown.enter="confirm"
       @keydown.escape="cancel"
     />
@@ -29,6 +30,8 @@ const props = defineProps<{
   mvuPath: string;
   /** 输入类型，默认 'text' */
   inputType?: string;
+  /** 输入框宽度，默认 '6em' */
+  inputWidth?: string;
   /** 自定义写入函数（如键名重命名），提供时跳过默认 writeMvuVariable */
   onWrite?: (newVal: string) => Promise<void>;
 }>();
@@ -76,16 +79,19 @@ function cancel() {
 }
 .editable-wrapper {
   display: inline-flex;
-  align-items: center;
+  align-items: baseline;
   gap: 4px;
+  vertical-align: baseline;
 }
 .edit-input {
   background: transparent;
   border: none;
-  border-bottom: 1px solid currentColor;
+  box-shadow: 0 1px 0 0 currentColor;
   color: inherit;
   font: inherit;
+  line-height: inherit;
   padding: 0;
+  margin: 0;
   width: 6em;
   outline: none;
   -moz-appearance: textfield;
@@ -100,8 +106,11 @@ function cancel() {
   border: none;
   color: inherit;
   font-size: 0.85em;
+  line-height: inherit;
   cursor: pointer;
   padding: 0 2px;
+  margin: 0;
+  vertical-align: baseline;
   opacity: 0.7;
 }
 .edit-btn:hover {
