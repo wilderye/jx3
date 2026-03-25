@@ -76,6 +76,9 @@ function getTagStyle(idx: number) {
   } else if (visualDist <= 0.3) {
     // 非常近，接近中心
     opacity = 1;
+  } else if (pixelOffset < 0 && visualDist > 1.3) {
+    // 左侧：只显示1个相邻标签，超出即隐藏
+    opacity = 0;
   } else if (visualDist <= 2.5) {
     opacity = 0.3;
   } else {
